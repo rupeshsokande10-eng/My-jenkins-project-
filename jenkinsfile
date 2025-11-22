@@ -1,0 +1,62 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Clone Repository') {
+            steps {
+                echo "📥 Fetching code from GitHub..."
+                checkout scm
+            }
+        }
+
+        stage('Install Nginx') {
+            steps {
+                echo "📦 Installing Nginx (if not installed)..."
+                sh '''
+                    if ! dpkg -l | grep nginx; then
+                      sudo apt-get update -y
+                      sudo apt-get install nginx -y
+                    else
+                      echo "Nginx already installed."
+                    fi
+                '''
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                echo "🚀 Deploying HTML to server..."
+                sh '''
+                    sudo cp index.html /var/www/html/index.html
+                '''
+            }
+        }
+
+        stage('Restart Nginx') {
+            steps {
+                echo "🔄 Restarting Nginx..."
+                sh '''
+                    sudo systemctl restart nginx
+                    sudo systemctl enable nginx
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo "🔍 Checking service status..."
+                sh 'sudo systemctl status nginx --no-pager'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🎉 Deployment Successful!"
+        }
+        failure {
+            echo "❌ Deployment Failed — Check logs!"
+        }
+    }
+}
