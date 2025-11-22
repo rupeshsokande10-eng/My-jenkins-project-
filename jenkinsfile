@@ -2,28 +2,58 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout Code') {
             steps {
-                checkout scm
+                echo "Fetching code from GitHub..."
+                git branch: 'main',
+                url: 'https://github.com/<your-username>/<your-repo>.git'
             }
         }
 
-        stage('Install Nginx') {
+        stage('Install Apache') {
             steps {
-                sh '''
-                sudo apt-get update -y
-                sudo apt-get install nginx -y
-                '''
+                script {
+                    echo "Installing Apache Web Server..."
+                    sh """
+                        if ! command -v apache2 > /dev/null; then
+                            sudo apt-get update -y
+                            sudo apt-get install apache2 -y
+                        else
+                            echo "Apache already installed."
+                        fi
+                    """
+                }
             }
         }
 
-        stage('Deploy Website') {
+        stage('Start Apache') {
             steps {
-                sh '''
-                sudo cp index.html /var/www/html/
-                sudo systemctl restart nginx
-                '''
+                echo "Starting Apache..."
+                sh """
+                    sudo systemctl start apache2
+                    sudo systemctl enable apache2
+                """
             }
+        }
+
+        stage('Deploy HTML File') {
+            steps {
+                echo "Copying index.html to /var/www/html/"
+                sh """
+                    sudo rm -f /var/www/html/index.html
+                    sudo cp index.html /var/www/html/
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🚀 Deployment Successful! Visit your EC2 public IP."
+        }
+        failure {
+            echo "❌ Deployment Failed. Check console logs."
         }
     }
 }
