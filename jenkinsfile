@@ -3,57 +3,64 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Stop Nginx If Running') {
             steps {
-                echo "Fetching code from GitHub..."
-                git branch: 'main',
-                url: 'https://github.com/<your-username>/<your-repo>.git'
+                sh '''
+                echo "Stopping Nginx if running..."
+                sudo systemctl stop nginx || true
+                sudo systemctl disable nginx || true
+                '''
             }
         }
 
         stage('Install Apache') {
             steps {
-                script {
-                    echo "Installing Apache Web Server..."
-                    sh """
-                        if ! command -v apache2 > /dev/null; then
-                            sudo apt-get update -y
-                            sudo apt-get install apache2 -y
-                        else
-                            echo "Apache already installed."
-                        fi
-                    """
-                }
-            }
-        }
-
-        stage('Start Apache') {
-            steps {
-                echo "Starting Apache..."
-                sh """
-                    sudo systemctl start apache2
-                    sudo systemctl enable apache2
-                """
+                sh '''
+                echo "Installing Apache..."
+                sudo apt-get update -y
+                sudo apt-get install apache2 -y
+                '''
             }
         }
 
         stage('Deploy HTML File') {
             steps {
-                echo "Copying index.html to /var/www/html/"
-                sh """
-                    sudo rm -f /var/www/html/index.html
-                    sudo cp index.html /var/www/html/
-                """
+                sh '''
+                echo "Deploying index.html to Apache..."
+                sudo rm -f /var/www/html/index.html
+                sudo cp index.html /var/www/html/
+                '''
+            }
+        }
+
+        stage('Start Apache') {
+            steps {
+                sh '''
+                sudo systemctl restart apache2
+                sudo systemctl enable apache2
+                '''
+            }
+        }
+
+        stage('Verify Service') {
+            steps {
+                sh '''
+                echo "Apache Status:"
+                sudo systemctl status apache2 --no-pager
+                echo "-----------------------------"
+                echo "Testing on localhost..."
+                curl -I http://localhost
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "🚀 Deployment Successful! Visit your EC2 public IP."
+            echo "🎉 Deployment Successful! Apache is now serving the site."
         }
         failure {
-            echo "❌ Deployment Failed. Check console logs."
+            echo "❌ Deployment Failed. Check logs."
         }
     }
 }
